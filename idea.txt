@@ -1,0 +1,43 @@
+**Models:**
+
+```
+Speech to text    →  Whisper small (150MB, handles Malayalam-English codemix)
+LLM               →  Gemma 3 2B INT4, fine-tuned with MLX (1.2GB)
+```
+
+**Tech stack:**
+
+```
+UI                →  Flutter (Dart)
+Logic             →  Go (via gomobile)
+STT engine        →  whisper.cpp (called from Go via CGo)
+LLM engine        →  llama.cpp (called from Go via CGo)
+Fine-tuning       →  MLX on your MacBook M5 Pro
+PDF generation    →  go-pdf
+Delivery          →  WhatsApp wa.me deep link
+```
+
+**Flow:**
+
+```
+Doctor taps record
+       ↓
+Whisper small transcribes audio on device
+       ↓
+Gemma extracts structured JSON (GBNF grammar enforced)
+       ↓
+Gemma generates patient explanation
+       ↓
+Doctor reviews card, fixes anything (5 seconds)
+       ↓
+PDF generated on device
+       ↓
+WhatsApp share
+       ↓
+Audio deleted
+Transcript deleted
+JSON deleted
+Nothing persists
+```
+
+**That's it. Start building.**
