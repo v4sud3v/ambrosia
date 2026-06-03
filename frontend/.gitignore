@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Generated Go engine artifacts
+/macos/Runner/libambrosia_engine.dylib
+/macos/Runner/libambrosia_engine.h
+/android/app/src/main/jniLibs/**/*.so

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import '../config/app_config.dart';
+import '../bridge/ambrosia_bridge.dart';
 import '../services/audio_service.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, this.engine});
+
+  final AmbrosiaEngine? engine;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -18,9 +20,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _audioService = AudioService(
-      backendBaseUrl: AppConfig.backendBaseUrl,
-    );
+    _audioService = AudioService(engine: widget.engine ?? AmbrosiaBridge());
   }
 
   @override
@@ -39,10 +39,10 @@ class _HomePageState extends State<HomePage> {
 
     try {
       if (_isRecording) {
-        final result = await _audioService.stopRecordingAndUpload();
+        final result = await _audioService.stopRecordingAndProcess();
         setState(() {
           _isRecording = false;
-          _statusMessage = 'Uploaded: ${result.filePath.split('/').last}';
+          _statusMessage = '${result.message} (${result.bytes} bytes)';
         });
       } else {
         await _audioService.startRecording();
@@ -81,8 +81,14 @@ class _HomePageState extends State<HomePage> {
               label: Text(_isBusy ? 'Please wait...' : label),
               style: FilledButton.styleFrom(
                 backgroundColor: backgroundColor,
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-                textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 28,
+                  vertical: 18,
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             if (_statusMessage != null) ...[

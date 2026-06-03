@@ -1,15 +1,13 @@
-import 'dart:convert';
 import 'dart:io';
 
+import '../bridge/ambrosia_bridge.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 class AudioService {
-  AudioService({
-    required this.backendBaseUrl,
-  });
+  AudioService({required this.engine});
 
-  final String backendBaseUrl;
+  final AmbrosiaEngine engine;
   final AudioRecorder _recorder = AudioRecorder();
 
   Future<bool> hasPermission() async {
@@ -26,58 +24,34 @@ class AudioService {
     final fileName = 'ambrosia_${DateTime.now().millisecondsSinceEpoch}.m4a';
     final filePath = '${tempDir.path}/$fileName';
 
-    await _recorder.start(
-      const RecordConfig(),
-      path: filePath,
-    );
+    await _recorder.start(const RecordConfig(), path: filePath);
 
     return filePath;
   }
 
-  Future<UploadResult> stopRecordingAndUpload() async {
+  Future<AudioProcessingResult> stopRecordingAndProcess() async {
     final path = await _recorder.stop();
     if (path == null) {
       throw const AudioServiceException('No recording was created');
     }
 
-    final responseBody = await _uploadFile(path);
-    return UploadResult(
-      filePath: path,
-      responseBody: responseBody,
-    );
+    try {
+      final engineResult = engine.processAudioFile(path);
+      return AudioProcessingResult(
+        filePath: path,
+        message: engineResult.message,
+        bytes: engineResult.bytes,
+      );
+    } finally {
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    }
   }
 
   Future<void> cancelRecording() async {
     await _recorder.cancel();
-  }
-
-  Future<String> _uploadFile(String path) async {
-    final file = File(path);
-    final bytes = await file.readAsBytes();
-
-    final client = HttpClient();
-    try {
-      final uri = Uri.parse('$backendBaseUrl/upload-audio');
-      final request = await client.postUrl(uri);
-
-      request.headers.contentType = ContentType('application', 'octet-stream');
-      request.headers.set('x-file-name', path.split('/').last);
-
-      request.add(bytes);
-
-      final response = await request.close();
-      final body = await utf8.decoder.bind(response).join();
-
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw AudioServiceException(
-          'Upload failed: ${response.statusCode} $body',
-        );
-      }
-
-      return body;
-    } finally {
-      client.close(force: true);
-    }
   }
 
   Future<void> dispose() async {
@@ -85,14 +59,16 @@ class AudioService {
   }
 }
 
-class UploadResult {
-  const UploadResult({
+class AudioProcessingResult {
+  const AudioProcessingResult({
     required this.filePath,
-    required this.responseBody,
+    required this.message,
+    required this.bytes,
   });
 
   final String filePath;
-  final String responseBody;
+  final String message;
+  final int bytes;
 }
 
 class AudioServiceException implements Exception {
