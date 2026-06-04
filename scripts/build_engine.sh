@@ -11,6 +11,25 @@ build_macos() {
 	go build -buildmode=c-shared -o "$ROOT_DIR/frontend/macos/Runner/libambrosia_engine.dylib" .
 }
 
+build_ios_simulator() {
+	local sdk_path
+	local clang_path
+
+	sdk_path="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+	clang_path="$(xcrun --sdk iphonesimulator --find clang)"
+
+	mkdir -p "$ROOT_DIR/frontend/ios/Runner"
+
+	cd "$ROOT_DIR/backend"
+	CGO_ENABLED=1 \
+		GOOS=ios \
+		GOARCH=arm64 \
+		CC="$clang_path" \
+		CGO_CFLAGS="-isysroot $sdk_path -mios-simulator-version-min=13.0 -target arm64-apple-ios-simulator" \
+		CGO_LDFLAGS="-isysroot $sdk_path -mios-simulator-version-min=13.0 -target arm64-apple-ios-simulator" \
+		go build -buildmode=c-archive -o "$ROOT_DIR/frontend/ios/Runner/libambrosia_engine.a" .
+}
+
 find_android_ndk() {
 	if [[ "${ANDROID_NDK_HOME:-}" != "" ]]; then
 		printf '%s\n' "$ANDROID_NDK_HOME"
@@ -43,6 +62,9 @@ build_android_arm64() {
 case "$TARGET" in
 	macos)
 		build_macos
+		;;
+	ios-simulator)
+		build_ios_simulator
 		;;
 	android | android-arm64)
 		build_android_arm64

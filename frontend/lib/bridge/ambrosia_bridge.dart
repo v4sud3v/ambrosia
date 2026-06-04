@@ -96,7 +96,17 @@ class AmbrosiaBridge implements AmbrosiaEngine {
 
   static DynamicLibrary _openEngineLibrary() {
     if (Platform.isMacOS) {
-      return DynamicLibrary.open('macos/Runner/libambrosia_engine.dylib');
+      final bundledLibrary = File(_macOSBundledLibraryPath());
+      if (bundledLibrary.existsSync()) {
+        return DynamicLibrary.open(bundledLibrary.path);
+      }
+
+      final developmentLibrary = File('macos/Runner/libambrosia_engine.dylib');
+      if (developmentLibrary.existsSync()) {
+        return DynamicLibrary.open(developmentLibrary.path);
+      }
+
+      return DynamicLibrary.open('libambrosia_engine.dylib');
     }
     if (Platform.isLinux) {
       return DynamicLibrary.open('linux/lib/libambrosia_engine.so');
@@ -114,6 +124,14 @@ class AmbrosiaBridge implements AmbrosiaEngine {
     throw AmbrosiaBridgeException(
       'Unsupported platform: ${Platform.operatingSystem}',
     );
+  }
+
+  static String _macOSBundledLibraryPath() {
+    final executable = File(Platform.resolvedExecutable);
+    final macOSDirectory = executable.parent;
+    final contentsDirectory = macOSDirectory.parent;
+
+    return '${contentsDirectory.path}/Frameworks/libambrosia_engine.dylib';
   }
 }
 

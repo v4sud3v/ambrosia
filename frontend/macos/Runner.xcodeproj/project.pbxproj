@@ -213,6 +213,7 @@
 				33CC10EB2044A3C60003C045 /* Resources */,
 				33CC110E2044A8840003C045 /* Bundle Framework */,
 				3399D490228B24CF009A79C7 /* ShellScript */,
+				A1B2C3D42EDEA00100000001 /* Bundle Go Engine */,
 			);
 			buildRules = (
 			);
@@ -338,6 +339,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"$FLUTTER_ROOT\"/packages/flutter_tools/bin/macos_assemble.sh && touch Flutter/ephemeral/tripwire";
+		};
+		A1B2C3D42EDEA00100000001 /* Bundle Go Engine */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(PROJECT_DIR)/Runner/libambrosia_engine.dylib",
+			);
+			name = "Bundle Go Engine";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(FRAMEWORKS_FOLDER_PATH)/libambrosia_engine.dylib",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nENGINE_SOURCE=\"$PROJECT_DIR/Runner/libambrosia_engine.dylib\"\nENGINE_DESTINATION=\"$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/libambrosia_engine.dylib\"\nif [ ! -f \"$ENGINE_SOURCE\" ]; then\n  echo \"Missing Go engine dylib at $ENGINE_SOURCE. Run make build-engine from the repo root.\" >&2\n  exit 1\nfi\nmkdir -p \"$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH\"\ncp \"$ENGINE_SOURCE\" \"$ENGINE_DESTINATION\"\nif [ -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" ]; then\n  codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" \"$ENGINE_DESTINATION\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
