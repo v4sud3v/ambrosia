@@ -48,3 +48,4 @@ app.*.map.json
 /macos/Runner/libambrosia_engine.dylib
 /macos/Runner/libambrosia_engine.h
 /android/app/src/main/jniLibs/**/*.so
+
