@@ -1,36 +1,37 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
-import 'explanation_screen.dart';
+import 'explainer.dart';
+import 'explanation.dart';
+import 'explanation_service.dart';
 import 'extraction.dart';
-import 'extraction_service.dart';
-import 'extractor.dart';
 import 'gemma_engine.dart';
-import 'gemma_extractor.dart';
+import 'gemma_explainer.dart';
+import 'review_screen.dart';
 
-/// Module 3 UI — runs on-device extraction over a transcript and shows the
-/// structured plan. The editable review card (Module 5) will build on this.
-class ExtractionScreen extends StatefulWidget {
-  const ExtractionScreen({
+/// Module 4 UI — turns the structured plan into plain language for the patient.
+/// The editable review card (Module 5) and PDF (Module 6) build on this.
+class ExplanationScreen extends StatefulWidget {
+  const ExplanationScreen({
     super.key,
-    required this.transcript,
-    ExtractionService? service,
+    required this.extraction,
+    ExplanationService? service,
   }) : _injectedService = service;
 
-  final String transcript;
-  final ExtractionService? _injectedService;
+  final Extraction extraction;
+  final ExplanationService? _injectedService;
 
   @override
-  State<ExtractionScreen> createState() => _ExtractionScreenState();
+  State<ExplanationScreen> createState() => _ExplanationScreenState();
 }
 
-class _ExtractionScreenState extends State<ExtractionScreen> {
-  late final ExtractionService _service =
-      widget._injectedService ?? ExtractionService(extractor: _defaultExtractor());
+class _ExplanationScreenState extends State<ExplanationScreen> {
+  late final ExplanationService _service = widget._injectedService ??
+      ExplanationService(explainer: _defaultExplainer());
   late final bool _ownsService = widget._injectedService == null;
 
-  Extractor _defaultExtractor() =>
-      GemmaExtractor(engine: defaultGemmaEngine());
+  Explainer _defaultExplainer() =>
+      GemmaExplainer(engine: defaultGemmaEngine());
 
   @override
   void initState() {
@@ -38,7 +39,7 @@ class _ExtractionScreenState extends State<ExtractionScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _run());
   }
 
-  Future<void> _run() => _service.run(widget.transcript);
+  Future<void> _run() => _service.run(widget.extraction);
 
   @override
   void dispose() {
@@ -60,7 +61,11 @@ class _ExtractionScreenState extends State<ExtractionScreen> {
               Expanded(
                 child: ListenableBuilder(
                   listenable: _service,
-                  builder: (context, _) => _Body(service: _service, onRetry: _run),
+                  builder: (context, _) => _Body(
+                    service: _service,
+                    extraction: widget.extraction,
+                    onRetry: _run,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -89,7 +94,7 @@ class _Header extends StatelessWidget {
           tooltip: 'Back',
         ),
         const SizedBox(width: 12),
-        Text('PLAN', style: Theme.of(context).textTheme.labelSmall),
+        Text('FOR THE PATIENT', style: Theme.of(context).textTheme.labelSmall),
         const Spacer(),
         const _OnDeviceChip(),
       ],
@@ -98,28 +103,36 @@ class _Header extends StatelessWidget {
 }
 
 class _Body extends StatelessWidget {
-  const _Body({required this.service, required this.onRetry});
-  final ExtractionService service;
+  const _Body({
+    required this.service,
+    required this.extraction,
+    required this.onRetry,
+  });
+  final ExplanationService service;
+  final Extraction extraction;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
     switch (service.status) {
-      case ExtractionStatus.idle:
-      case ExtractionStatus.preparingModel:
+      case ExplanationStatus.idle:
+      case ExplanationStatus.preparingModel:
         return const _Working(
           label: 'Setting up the language model',
           detail:
               'A one-time download that runs on first use. It stays on this device.',
         );
-      case ExtractionStatus.extracting:
+      case ExplanationStatus.explaining:
         return const _Working(
-          label: 'Reading the plan',
-          detail: 'Pulling out diagnosis, medicines and follow-up.',
+          label: 'Putting it in plain words',
+          detail: 'Writing an explanation the patient can follow.',
         );
-      case ExtractionStatus.done:
-        return _ExtractionView(extraction: service.extraction!);
-      case ExtractionStatus.error:
+      case ExplanationStatus.done:
+        return _ExplanationView(
+          explanation: service.explanation!,
+          extraction: extraction,
+        );
+      case ExplanationStatus.error:
         return _ErrorView(
           message: service.errorMessage ?? 'Something went wrong.',
           onRetry: onRetry,
@@ -161,8 +174,9 @@ class _Working extends StatelessWidget {
   }
 }
 
-class _ExtractionView extends StatelessWidget {
-  const _ExtractionView({required this.extraction});
+class _ExplanationView extends StatelessWidget {
+  const _ExplanationView({required this.explanation, required this.extraction});
+  final Explanation explanation;
   final Extraction extraction;
 
   @override
@@ -174,31 +188,31 @@ class _ExtractionView extends StatelessWidget {
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
-              _Section(
-                label: 'DIAGNOSIS',
-                child: _valueText(context, extraction.diagnosis),
-              ),
-              const SizedBox(height: 14),
-              _Section(
-                label: 'MEDICINES',
-                child: extraction.medicines.isEmpty
-                    ? _emptyText(context)
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (final m in extraction.medicines)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: _MedicineRow(medicine: m),
-                            ),
-                        ],
-                      ),
-              ),
-              const SizedBox(height: 14),
-              _Section(
-                label: 'FOLLOW-UP',
-                child: _valueText(context, extraction.followUp),
-              ),
+              if (explanation.condition.trim().isNotEmpty)
+                _Prose(
+                  icon: Icons.info_outline,
+                  title: 'What this is',
+                  body: explanation.condition,
+                ),
+              if (explanation.recovery.trim().isNotEmpty)
+                _Prose(
+                  icon: Icons.trending_up,
+                  title: 'Getting better',
+                  body: explanation.recovery,
+                ),
+              if (explanation.avoid.isNotEmpty)
+                _Bullets(
+                  icon: Icons.do_not_disturb_on_outlined,
+                  title: 'Things to avoid',
+                  items: explanation.avoid,
+                ),
+              if (explanation.dangerSigns.isNotEmpty)
+                _Bullets(
+                  icon: Icons.warning_amber_rounded,
+                  title: 'See a doctor if…',
+                  items: explanation.dangerSigns,
+                  caution: true,
+                ),
             ],
           ),
         ),
@@ -206,7 +220,10 @@ class _ExtractionView extends StatelessWidget {
         FilledButton(
           onPressed: () => Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => ExplanationScreen(extraction: extraction),
+              builder: (_) => ReviewScreen(
+                extraction: extraction,
+                explanation: explanation,
+              ),
             ),
           ),
           style: FilledButton.styleFrom(
@@ -219,89 +236,120 @@ class _ExtractionView extends StatelessWidget {
       ],
     );
   }
-
-  Widget _valueText(BuildContext context, String value) {
-    if (value.trim().isEmpty) return _emptyText(context);
-    return Text(
-      value,
-      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppColors.ink,
-            fontSize: 16,
-            height: 1.4,
-          ),
-    );
-  }
-
-  Widget _emptyText(BuildContext context) {
-    return Text(
-      'Not mentioned — add in review',
-      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontStyle: FontStyle.italic,
-            fontSize: 14,
-          ),
-    );
-  }
 }
 
-class _Section extends StatelessWidget {
-  const _Section({required this.label, required this.child});
-  final String label;
-  final Widget child;
+class _Prose extends StatelessWidget {
+  const _Prose({required this.icon, required this.title, required this.body});
+  final IconData icon;
+  final String title;
+  final String body;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.hairline),
-      ),
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: Theme.of(context).textTheme.labelSmall),
-          const SizedBox(height: 10),
-          child,
+          _SectionTitle(icon: icon, title: title),
+          const SizedBox(height: 8),
+          Text(
+            body,
+            style: text.bodyMedium
+                ?.copyWith(color: AppColors.ink, fontSize: 17, height: 1.5),
+          ),
         ],
       ),
     );
   }
 }
 
-class _MedicineRow extends StatelessWidget {
-  const _MedicineRow({required this.medicine});
-  final Medicine medicine;
+class _Bullets extends StatelessWidget {
+  const _Bullets({
+    required this.icon,
+    required this.title,
+    required this.items,
+    this.caution = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final List<String> items;
+  final bool caution;
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return Row(
+    final accent = caution ? AppColors.amber : AppColors.teal;
+    final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(top: 6, right: 10),
-          child: Icon(Icons.medication_outlined, size: 16, color: AppColors.teal),
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                medicine.name,
-                style: text.bodyMedium
-                    ?.copyWith(color: AppColors.ink, fontSize: 16, height: 1.3),
-              ),
-              if (medicine.summary != medicine.name)
-                Text(
-                  [medicine.dosage, medicine.frequency, medicine.duration]
-                      .where((p) => p.trim().isNotEmpty)
-                      .join(' · '),
-                  style: text.bodyMedium?.copyWith(fontSize: 13),
+        _SectionTitle(icon: icon, title: title, color: accent),
+        const SizedBox(height: 10),
+        for (final item in items)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, right: 10),
+                  child: Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+                  ),
                 ),
-            ],
+                Expanded(
+                  child: Text(
+                    item,
+                    style: text.bodyMedium?.copyWith(
+                      color: AppColors.ink,
+                      fontSize: 16,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
+      ],
+    );
+
+    if (!caution) {
+      return Padding(padding: const EdgeInsets.only(bottom: 22), child: content);
+    }
+    // Danger signs get a quiet caution frame — the one place the amber earns its keep.
+    return Container(
+      margin: const EdgeInsets.only(bottom: 22),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.amber.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.amber.withValues(alpha: 0.4)),
+      ),
+      child: content,
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.icon, required this.title, this.color});
+  final IconData icon;
+  final String title;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color ?? AppColors.teal;
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: c),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(color: c),
         ),
       ],
     );
@@ -380,7 +428,7 @@ class _PrivacyFooter extends StatelessWidget {
         const Divider(height: 1, color: AppColors.hairline),
         const SizedBox(height: 14),
         Text(
-          'Structured on this device. Nothing is uploaded.',
+          'Written on this device. Nothing is uploaded.',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 13),
           textAlign: TextAlign.center,
         ),

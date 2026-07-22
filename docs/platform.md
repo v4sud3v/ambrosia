@@ -66,9 +66,12 @@ lib/
   recorder/            Module 1 — record → local temp WAV     ← built
   pipeline/            Module 2 — Whisper STT → transcript    ← built
                        Module 3 — Gemma → structured plan     ← built
-                       (explanation → review → PDF later)
+                       Module 4 — Gemma → plain-language      ← built
+                       Module 5 — Review Card (edit + confirm) ← built
+                       (PDF → share → cleanup later)
 ios/ android/          native hosts (whisper.cpp + Gemma/MediaPipe)
 macos/                 dev/verification target for on-device inference
 integration_test/      on-device STT check (runs real whisper on macOS)
-tool/                  verify_extraction.dart — prompt+parser vs. real Gemma
+tool/                  verify_extraction.dart / verify_explanation.dart
+                       (prompt+parser vs. real Gemma via ollama)
 ```
