@@ -74,7 +74,7 @@ void main() {
       expect(service.isRecording, isTrue);
       expect(backend.startCount, 1);
       expect(service.lastRecordingPath,
-          '/tmp/ambrosia/consultation_1700000000000.m4a');
+          '/tmp/ambrosia/consultation_1700000000000.wav');
       expect(backend.startedPath, service.lastRecordingPath);
 
       await service.stop();

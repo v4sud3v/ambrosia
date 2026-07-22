@@ -112,7 +112,7 @@ class RecordingService extends ChangeNotifier {
   Future<String> _buildTempFilePath() async {
     final dir = await _tempDirPath();
     final stamp = _now().millisecondsSinceEpoch;
-    return '$dir/consultation_$stamp.m4a';
+    return '$dir/consultation_$stamp.wav';
   }
 
   void _fail(String message) {

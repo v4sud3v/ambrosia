@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../pipeline/transcript_screen.dart';
 import '../theme/app_theme.dart';
 import 'audio_backend.dart';
 import 'recording_service.dart';
@@ -47,6 +48,14 @@ class _RecorderScreenState extends State<RecorderScreen> {
     }
   }
 
+  void _onTranscribe() {
+    final path = _service.lastRecordingPath;
+    if (path == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => TranscriptScreen(audioPath: path)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -64,6 +73,27 @@ class _RecorderScreenState extends State<RecorderScreen> {
                     recording: _service.isRecording,
                     onTap: _onMicTap,
                   ),
+                  if (_service.status == RecordingStatus.saved) ...[
+                    const SizedBox(height: 20),
+                    FilledButton(
+                      onPressed: _onTranscribe,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.teal,
+                        minimumSize: const Size.fromHeight(52),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text('Transcribe'),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Tap the mic to record again',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontSize: 12,
+                          ),
+                    ),
+                  ],
                   const SizedBox(height: 28),
                   const _PrivacyFooter(),
                 ],

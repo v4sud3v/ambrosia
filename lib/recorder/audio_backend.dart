@@ -22,8 +22,10 @@ abstract class AudioBackend {
 
 /// Production backend backed by the `record` plugin.
 ///
-/// Records AAC-LC in an m4a container — a good size/quality balance for the
-/// short (2–3 min) consultations Whisper will later transcribe on-device.
+/// Records 16 kHz mono PCM16 WAV — exactly what the on-device Whisper stage
+/// (Module 2) consumes, so the pipeline never needs an FFmpeg transcode. WAV is
+/// uncompressed (~2 MB/min) but the file is a short-lived temp that's deleted
+/// after the PDF hand-off, so size doesn't matter here.
 class RecordAudioBackend implements AudioBackend {
   RecordAudioBackend([AudioRecorder? recorder])
       : _recorder = recorder ?? AudioRecorder();
@@ -37,8 +39,8 @@ class RecordAudioBackend implements AudioBackend {
   Future<void> start(String path) {
     return _recorder.start(
       const RecordConfig(
-        encoder: AudioEncoder.aacLc,
-        sampleRate: 16000, // Whisper operates at 16 kHz; no reason to store more
+        encoder: AudioEncoder.wav,
+        sampleRate: 16000, // Whisper operates at 16 kHz
         numChannels: 1,
       ),
       path: path,
